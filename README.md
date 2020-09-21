@@ -30,15 +30,13 @@ class CustomGaMDLangevinIntegrator(CustomIntegrator):
             #original langevin line:                                                                                      
         #self.addComputePerDof("v", "vscale*v + fscale*f/m + noisescale*gaussian/sqrt(m)");  
             #GaMD:
-        #self.addComputePerDof("v", "vscale*v + fscale*fprime/m + noisescale*gaussian/sqrt(m);fprime=f*((1-modify) + modify*(alpha/(alpha+E-energy))^2);modify=step(E-energy)"); 
         dof_string = "vscale*v + fscale*f_select/m + noisescale*gaussian/sqrt(m);"
         dof_string+= "f_select = f + modify*boost;" #if energy is below threshold 'E', then add the boost potential 'fprime'
         dof_string+= "modify = step(E-energy);" #'modify' will be 1 when energy is below E
         dof_string+= "boost= 0.5 * k * (E - energy)^2;"
-        
-        
+    
         self.addComputePerDof("v", dof_string); 
-        #self.addComputePerDof("v", "v+dt*fprime/m; fprime=f*((1-modify) + modify*(alpha/(alpha+E-energy))^2); modify=step(E-energy)")
+
             #normal langevin                                            
         self.addComputePerDof("x", "x+dt*v");
         self.addConstrainPositions();
