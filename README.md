@@ -2,8 +2,8 @@ implementing GaMD in openmm with a LangevinIntegrator
 
 
 # the integrator:
-python
-```
+
+```python
 class CustomGaMDLangevinIntegrator(CustomIntegrator):
     def __init__(self, temperature, friction, dt, k, E):
         self.k = k 
