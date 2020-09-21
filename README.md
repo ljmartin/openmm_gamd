@@ -43,4 +43,39 @@ class CustomGaMDLangevinIntegrator(CustomIntegrator):
         self.addComputePerDof("v", "(x-x0)/dt");
         self.addComputePerDof("veloc", "v")
         
+    def getEffectiveEnergy(self, energy):
+        """Given the actual potential energy of the system, return the value of the effective potential."""
+        k = self.k
+        E = self.E
+        if not is_quantity(energy):
+            energy = energy*kilojoules_per_mole # Assume kJ/mole
+        if (energy > E):
+            return energy
+        return energy + ( 0.5 * k * (E-energy)**2 )/kilojoules_per_mole # 'k' parameter should instead be per kj/mol
+
+        
+```
+
+
+now, when setting `E` to `Vmax`, estimate GaMD parameters like this:
+
+```python
+pe = np.array(my_potential_energies)
+
+#set the desired maximum standard deviation of the boost potential to be 10kT: 
+sigma_0 = (MOLAR_GAS_CONSTANT_R * TEMPERATURE ).value_in_unit(kilojoule_per_mole) * 10
+print(f'Sigma0: {sigma_0}')
+
+#potential energy statistics:
+Vmax = pe.max()
+Vmin = pe.min()
+Vavg = pe.mean()
+Vstd = np.std(pe)
+
+print(f'Vmax: {Vmax},\nVmin: {Vmin},\nVavg: {Vavg},\nVstd: {Vstd}')
+k_0 = min(1, sigma_0/Vstd * ((Vmax-Vmin)/(Vmax-Vavg)))
+
+k = k_0 * (1 / (Vmax - Vmin) )
+
+print(f'k_0: {k_0},\nk: {k}')
 ```
