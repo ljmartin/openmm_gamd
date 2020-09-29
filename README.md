@@ -1,18 +1,27 @@
 implementing GaMD in openmm with a LangevinIntegrator
 
+See the notebook for derivation of the force multiplier used in this integrator that implements the boost potential
+
 
 # the integrator:
 
 ```python
 class CustomGaMDLangevinIntegrator(CustomIntegrator):
-    def __init__(self, temperature, friction, dt, k, E):
-        self.k = k 
-        self.E = E #threshold value
+    def __init__(self, temperature, friction, dt, ktot, Etot, kgrp, Egrp, forceGroup):
+        self.ktot = ktot 
+        self.Etot = Etot 
+        self.kgrp = kgrp
+        self.Egrp = Egrp
+        self.forceGroup = str(forceGroup)
         
         CustomIntegrator.__init__(self, dt)
             #lew added:
-        self.addGlobalVariable("k", k)
-        self.addGlobalVariable("E", E)
+        self.addGlobalVariable("ktot", self.ktot)
+        self.addGlobalVariable("Etot", self.Etot)
+        self.addGlobalVariable("kgrp", self.ktot)
+        self.addGlobalVariable("Egrp", self.Egrp)
+        self.addGlobalVariable("groupEnergy", 0)
+        
             #normal langevin:  
         self.addGlobalVariable("temperature", temperature);
         self.addGlobalVariable("friction", friction);
@@ -20,8 +29,15 @@ class CustomGaMDLangevinIntegrator(CustomIntegrator):
         self.addGlobalVariable("fscale", 0);
         self.addGlobalVariable("noisescale", 0);
         self.addPerDofVariable("x0", 0);
+        
+        self.addPerDofVariable("fgrp", 0)
+        
             #normal langevin:                                                                  
         self.addUpdateContextState();
+        
+        self.addComputeGlobal("groupEnergy", "energy"+self.forceGroup)
+        self.addComputePerDof("fgrp", "f"+self.forceGroup)
+        
         self.addComputeGlobal("vscale", "exp(-dt*friction)");
         self.addComputeGlobal("fscale", "(1-vscale)/friction");
         #original line:                
@@ -30,30 +46,72 @@ class CustomGaMDLangevinIntegrator(CustomIntegrator):
             #original langevin line:                                                                                      
         #self.addComputePerDof("v", "vscale*v + fscale*f/m + noisescale*gaussian/sqrt(m)");  
             #GaMD:
-        #self.addComputePerDof("v", "vscale*v + fscale*fprime/m + noisescale*gaussian/sqrt(m);fprime=f*((1-modify) + modify*(alpha/(alpha+E-energy))^2);modify=step(E-energy)"); 
         dof_string = "vscale*v + fscale*fprime/m + noisescale*gaussian/sqrt(m);"
-        dof_string+= "fprime = f*((1-modify) + modify*((energy + 0.5*k*(E-energy )^2)/energy)  );" #multiplying f by factor equivalent to what V(r) was multiplied by
-        dof_string+= "modify = step(E-energy);" #'modify' will be 1 when energy is below E
-
+        dof_string+= "fprime= fprime1 + fprime2;"
+        #fprime2 is the dihedral force modified by the boost. Boot calculated using group only. 
+        dof_string+= "fprime2 = fgrp*((1-modifyGroup) + modifyGroup* (1 - kgrp*(Egrp - groupEnergy)) ) ;"
+        #fprime1 is the other forces modified by the boost, but the boost is calculated using TOTAL energy. 
+        dof_string+= "fprime1 = ftot*((1-modifyTotal) + modifyTotal* (1 - ktot*(Etot - energy)) );"
         
+        dof_string+= "ftot=f-fgrp;"
+        dof_string+= "modifyGroup=step(Egrp-groupEnergy);"
+        dof_string+= "modifyTotal=step(Etot-energy);"
         self.addComputePerDof("v", dof_string); 
-        #self.addComputePerDof("v", "v+dt*fprime/m; fprime=f*((1-modify) + modify*(alpha/(alpha+E-energy))^2); modify=step(E-energy)")
             #normal langevin                                            
         self.addComputePerDof("x", "x+dt*v");
         self.addConstrainPositions();
         self.addComputePerDof("v", "(x-x0)/dt");
         self.addComputePerDof("veloc", "v")
         
-    def getEffectiveEnergy(self, energy):
-        """Given the actual potential energy of the system, return the value of the effective potential."""
-        k = self.k
-        E = self.E
-        if not is_quantity(energy):
-            energy = energy*kilojoules_per_mole # Assume kJ/mole
-        if (energy > E):
-            return energy
-        return energy + ( 0.5 * k * (E-energy)**2 ) # 'k' parameter should instead be per kj/mol
-
+    def setKtot(self, newK):
+        if not is_quantity(newK):
+            newK = newK/kilojoules_per_mole
+        self.setGlobalVariableByName('ktot', newK)
+        
+    def setEtot(self, newE):
+        if not is_quantity(newE):
+            newE = newE*kilojoules_per_mole
+        self.setGlobalVariableByName('Etot', newE)
+        
+    def setKgrp(self, newK):
+        if not is_quantity(newK):
+            newK = newK/kilojoules_per_mole
+        self.setGlobalVariableByName('kgrp', newK)
+        
+    def setEgrp(self, newE):
+        #if not is_quantity(newE):
+        #    newE = newE*kilojoules_per_mole
+        #    print(newE)
+        self.setGlobalVariableByName('Egrp', newE)
+          
+    def getGrpBoost(self, grpEnergy):
+        kgrp = self.getGlobalVariableByName('kgrp')/kilojoules_per_mole
+        Egrp = self.getGlobalVariableByName('Egrp')*kilojoules_per_mole
+        if not is_quantity(grpEnergy):
+            grpEnergy = grpEnergy*kilojoules_per_mole # Assume kJ/mole
+        if (grpEnergy > Egrp):
+            return 0*kilojoules_per_mole #no boosting
+        return ( 0.5 * kgrp * (Egrp-grpEnergy)**2 ) # 'k' parameter should instead be per kj/mol
+    
+    def getTotBoost(self, totEnergy):
+        ktot = self.getGlobalVariableByName('ktot')/kilojoules_per_mole
+        Etot = self.getGlobalVariableByName('Etot')*kilojoules_per_mole
+        if not is_quantity(totEnergy):
+            totEnergy = totEnergy*kilojoules_per_mole # Assume kJ/mole
+        if (totEnergy > Etot):
+            return 0*kilojoules_per_mole #no boosting
+        return ( 0.5 * ktot * (Etot-totEnergy)**2 ) # 'k' parameter should instead be per kj/mol
+        
+    def getEffectiveEnergy(self, totEnergy, grpEnergy):
+        if not is_quantity(totEnergy):
+            totEnergy = totEnergy*kilojoules_per_mole # Assume kJ/mole
+        if not is_quantity(grpEnergy):
+            grpEnergy = grpEnergy*kilojoules_per_mole # Assume kJ/mole
+        
+        group_boost = self.getGrpBoost(grpEnergy)
+        total_boost = self.getTotBoost(totEnergy)
+        
+        return totEnergy + group_boost + total_boost
 ```
 
 
