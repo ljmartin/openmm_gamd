@@ -2,71 +2,10 @@ implementing GaMD in openmm with a LangevinIntegrator
 
 
 # GaMD in OpenMM
-The most convenient way to implement GaMD in OpenMM is using a custom integrator. In the custom integrator, the force has already been calculated by OpenMM. That means we can't edit the potential energy function and expect to re-calculate the force. Instead, we find out what the change in potential energy would have done to the force, and do the same thing within the integrator.  
+See the notebook for the full derivation. In OpenMM, the easiest way to implement the boost potential is to modify the force, which is done like this:
 
-Normally, the force is the negative of the gradient of the potential $V(\vec r)$:
-$$f = -1 \left( \frac{\partial V(\vec r)}{\partial \vec r}\right)$$
+<img src="https://render.githubusercontent.com/render/math?math=f' = f \cdot (1 - k(E - V(\vec r) )">
 
-In GaMD, we use a modified potential:
-
-$$V'(\vec r) = V(\vec r) + dV(\vec r)$$ 
-
-where:
-
-$$dV(\vec r) = \frac{k}{2} (E - V(\vec r))^2$$
-
-So the modified force is now:
-
-$$f' = -1 \left( \frac{\partial V(\vec r) + \frac{k}{2} (E - V(\vec r))^2}{\partial \vec r}\right)$$
-
-Separate into two derivatives with the Sum rule:
-
-$$f' = - \left( \frac{\partial V(\vec r)}{\partial \vec r}\right) -  \left( \frac{\partial \frac{k}{2} (E - V(\vec r))^2 }{\partial \vec r}\right)  $$
-
-
-Now to start simplifying. The left hand term is already $-f$ and we can move $\frac{k}{2}$ outside (Constant rule):
-
-$$f' =  f -  \frac{k}{2} \left( \frac{\partial (E - V(\vec r))^2 }{\partial \vec r}\right)  $$
-
-Expanding the right hand side:
-
-$$f' =  f -  \frac{k}{2} \left( \frac{\partial (E^2 - 2EV(\vec r) + V(\vec r)^2) }{\partial \vec r}\right)  $$
-
-$E^2$ is a constant and doesn't affect the derivative, so remove it:
-
-$$f' =  f -  \frac{k}{2} \left( \frac{\partial ( - 2EV(\vec r) + V(\vec r)^2) }{\partial \vec r}\right)  $$
-
-Factor out one of the $V(\vec r)$ terms so we can do a chain rule afterwards:
-
-$$f' =  f -  \frac{k}{2} \left( \frac{\partial ( V(\vec r)(- 2E + V(\vec r)) }{\partial \vec r}\right)  $$
-
-Now use the chain rule:
-
-$$f' =  f -  \frac{k}{2} \left( \frac{\partial V(\vec r) }{\partial \vec r}\cdot(-2E + V(\vec r)) + \frac{\partial (-2E + V(\vec r)) }{\partial \vec r} \cdot V(\vec r) \right)  $$
-
-
-This is where life gets easier. The left derivative is $-f$ again. The $-2E$ can be removed from the right derivative, since it's a constant, meaning the right derivative is just $-f$ as well!
-
-$$f' = f - \frac{k}{2} \left( -f\cdot(-2E + V(\vec r)) -fV(\vec r) \right) $$
-
-One step at a time...
-
-$$f' = f - \frac{k}{2} \left( 2fE - fV(\vec r) -fV(\vec r) \right) $$
-
-then 
-$$f' = f - \frac{k}{2} \left( 2fE - 2fV(\vec r) \right) $$
-
-then 
-$$f' = f - \frac{k}{2} \left( 2f(E - V(\vec r)) \right) $$
-
-then 
-$$f' = f - fk \left( E - V(\vec r) \right) $$
-
-
-
-So finally, we have the modified force being the original force multiplied by a factor of $k$, $E$, and $V(\vec r)$:
-
-$$f' = f \cdot (1 - k(E - V(\vec r) )$$ 
 
 
 ----------------------------
