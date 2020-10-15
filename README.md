@@ -10,9 +10,8 @@ See the notebook for the full derivation. In OpenMM, the easiest way to implemen
 
 ----------------------------
 
-The custom integrator below is a Langevin integrator with some extra parameters like $E$ and $k$ (one of each for the dihedrals force group, and one of each for everything else, which Miao et al. call 'total' potential), which are used to calculate the modified force. 
+Custom integrator that does this, along with Langevin dynamics:
 
-It also has methods to calculate the magnitude of the boost, which can be used later to re-weight the free energy estimates.  
 
 # the integrator:
 
