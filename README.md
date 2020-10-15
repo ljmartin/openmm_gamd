@@ -5,7 +5,9 @@ GaMD in OpenMM
 
 The most convenient way to implement GaMD in OpenMM is using a custom integrator. In the custom integrator, the force has already been calculated by OpenMM. That means we can't edit the potential energy function and expect to re-calculate the force. Instead, we find out what the change in potential energy would have done to the force, and do the same thing within the integrator.
 
-Normally, the force is the negative of the gradient of the potential $V(\vec r)$: $$f = -1 \left( \frac{\partial V(\vec r)}{\partial \vec r}\right)$$
+Normally, the force is the negative of the gradient of the potential 
+
+$V(\vec r)$: $$f = -1 \left( \frac{\partial V(\vec r)}{\partial \vec r}\right)$$
 
 In GaMD, we use a modified potential:
 $$V'(\vec r) = V(\vec r) + dV(\vec r)$$
