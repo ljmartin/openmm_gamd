@@ -6,6 +6,8 @@ See the notebook for the full derivation. In OpenMM, the easiest way to implemen
 
 <img src="https://render.githubusercontent.com/render/math?math=f' = f \cdot (1 - k(E - V(\vec r) )">
 
+$`f' = f \cdot (1 - k(E - V(\vec r) )`$
+
 
 
 ----------------------------
