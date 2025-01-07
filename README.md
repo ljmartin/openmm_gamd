@@ -4,12 +4,6 @@ implementing GaMD in openmm with a LangevinIntegrator
 # GaMD in OpenMM
 See the notebook for the full derivation. In OpenMM, the easiest way to implement the boost potential is to modify the force, which is done like this:
 
-<img src="https://render.githubusercontent.com/render/math?math=f' = f \cdot (1 - k(E - V(\vec r) )">
-
-$` f' = f \cdot (1 - k(E - V(\vec {r}) ) `$
-
-$` f' = f \sqrt{3x-1}+(1+x)^2`$
-
 $$ 
 f' = f \cdot(1-k(E-V(\vec{r}))
 $$
