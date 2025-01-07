@@ -10,7 +10,7 @@ $` f' = f \cdot (1 - k(E - V(\vec {r}) ) `$
 
 $` f' = f \sqrt{3x-1}+(1+x)^2`$
 
-$` f' = f \cdot(1-k(E-V|vec{r})`$
+$` f' = f \cdot(1-k(E-V\vec{r})`$
 
 
 
